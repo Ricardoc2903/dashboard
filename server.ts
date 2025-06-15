@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import fileUpload from "express-fileupload";
 import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth";
 import equiposRoutes from "./routes/equipos";
@@ -22,11 +23,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Middleware para recibir archivos en req.files
+app.use(
+  fileUpload({
+    createParentPath: true,
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+  })
+);
+
 // 👉 Rutas públicas
 app.use("/api/auth", authRoutes);
 
 // // 👉 Middleware de autenticación (después de públicas)
-// app.use(authenticateJWT);
+app.use(authenticateJWT);
 
 // 👉 Rutas privadas (requieren token)
 app.use("/api/authProtegido", authProtegidoRoutes);

@@ -255,79 +255,79 @@
 
 // export default router;
 
-// backend/routes/maintenances.ts
+// backend|outes/maintenances.ts
 
 import express, { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import multer from "multer";
 import * as mime from "mime-types";
 import authenticateJWT, { AuthenticatedRequest } from "../middleware/authenticateJWT";
+import cloudinary from "../utils/cloudinary";
+import fileUpload from "express-fileupload";
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Middleware express-fileupload (en server.ts lo registras globalmente)
+// app.use(fileUpload({ createParentPath: true, limits: { fileSize: 20 * 1024 * 1024 } }));
 
 /**
- * 1) Subir archivo
  * POST /api/mantenimientos/:id/upload
+ * Recibe el archivo en req.files.archivo, lo sube a Cloudinary y guarda en Prisma la URL resultante.
  */
-router.post(
-  "/:id/upload",
-  authenticateJWT,
-  upload.single("archivo"),
-  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ message: "No se recibió ningún archivo" });
-        return;
-      }
-      // Creamos el registro con url vacío
-      const fileRecord = await prisma.file.create({
-        data: {
-          filename: req.file.originalname,
-          content: req.file.buffer,
-          maintenanceId: req.params.id,
-          url: "",
-        },
-      });
-      // Actualizamos el campo url
-      const updated = await prisma.file.update({
-        where: { id: fileRecord.id },
-        data: { url: `/api/mantenimientos/archivo/${fileRecord.id}` },
-      });
-      res.status(201).json(updated);
-    } catch (error) {
-      console.error("Error al subir archivo:", error);
-      res.status(500).json({ message: "Error al subir archivo" });
-    }
-  }
-);
+// router.post(
+//   "/:id/upload",
+//   authenticateJWT,
+//   async (req: AuthenticatedRequest, res: Response) => {
+//     try {
+//       // 1. Verificamos que exista req.files.archivo
+//       if (!req.files || !req.files.archivo) {
+//         return res.status(400).json({ message: "No se recibió ningún archivo" });
+//       }
 
-/**
- * 2) Servir buffer de la imagen
- * GET /api/mantenimientos/archivo/:archivoId
- */
-router.get(
-  "/archivo/:archivoId",
-  async (req: Request, res: Response): Promise<void> => {
-    try {
-      const archivo = await prisma.file.findUnique({
-        where: { id: req.params.archivoId },
-      });
-      if (!archivo) {
-        res.status(404).json({ message: "Archivo no encontrado" });
-        return;
-      }
-      const contentType =
-        mime.lookup(archivo.filename) || "application/octet-stream";
-      res.setHeader("Content-Type", contentType);
-      res.send(Buffer.from(archivo.content));
-    } catch (error) {
-      console.error("Error al servir archivo:", error);
-      res.status(500).json({ message: "Error interno" });
-    }
-  }
-);
+//       // 2. Obtenemos el buffer del archivo
+//       const uploaded = Array.isArray(req.files.archivo)
+//         ? req.files.archivo[0]
+//         : req.files.archivo;
+//       const buffer = (uploaded as any).data as Buffer;
+
+//       // 3. Subimos a Cloudinary mediante un stream
+//       const streamUpload = (buffer: Buffer) => {
+//         return new Promise<cloudinary.UploadApiResponse>((resolve, reject) => {
+//           const uploadStream = cloudinary.uploader.upload_stream(
+//             {
+//               folder: "mantenimientos",     // Carpeta (opcional) en tu cuenta de Cloudinary
+//               resource_type: "image",
+//             },
+//             (error, result) => {
+//               if (error) return reject(error);
+//               if (!result) return reject(new Error("Sin respuesta de Cloudinary"));
+//               resolve(result);
+//             }
+//           );
+//           // Pipeamos el buffer al upload_stream:
+//           uploadStream.end(buffer);
+//         });
+//       };
+
+//       const result = await streamUpload(buffer);
+//       // result.secure_url es la URL pública en Cloudinary
+
+//       // 4. Guardamos en Prisma (modelo File) solo el nombre original y la URL
+//       const nuevoFile = await prisma.file.create({
+//         data: {
+//           filename: uploaded.name,
+//           url: result.secure_url,
+//           maintenanceId: req.params.id,
+//         },
+//       });
+
+//       return res.status(201).json(nuevoFile);
+//     } catch (error) {
+//       console.error("Error al subir a Cloudinary:", error);
+//       return res.status(500).json({ message: "Error al subir archivo" });
+//     }
+//   }
+// );
 
 /**
  * 3) Eliminar archivo
